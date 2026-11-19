@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>代金券算账工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%);
+    min-height: 100vh; color: #1f2937; font-size: 14px;
+  }
+  .wrap { max-width: 430px; margin: 0 auto; padding: 20px 16px 90px; }
+  .header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .logo { width: 40px; height: 40px; border-radius: 12px; background: #f59e0b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
+  .header h1 { font-size: 20px; }
+  .header p { font-size: 12px; color: #6b7280; }
+  .card { background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  select, input[type=text], input[type=number], input[type=search] {
+    border: 1px solid #e5e7eb; border-radius: 10px; padding: 9px 12px; font-size: 14px; background: #fff; outline: none; color: #1f2937; width: 100%;
+  }
+  select:focus, input:focus { border-color: #f59e0b; }
+  .seg { display: flex; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 9px 14px; font-size: 14px; color: #4b5563; cursor: pointer; }
+  .seg button.on { background: #f59e0b; color: #fff; font-weight: 600; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #fff; border-radius: 12px; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 14px; }
+  .tabs button { border: 0; background: transparent; border-radius: 9px; padding: 9px; font-size: 14px; font-weight: 500; color: #4b5563; cursor: pointer; }
+  .tabs button.on { background: #f59e0b; color: #fff; }
+  .switchline { display: flex; align-items: center; justify-content: space-between; color: #374151; }
+  .hint { font-size: 12px; color: #9ca3af; margin-top: 8px; line-height: 1.5; }
+  label.small { display: block; font-size: 12px; font-weight: 500; color: #6b7280; margin: 10px 0 4px; }
+  .dish-cat { background: #fff; border-radius: 16px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 10px; }
+  .dish-cat h3 { font-size: 14px; color: #111827; display: flex; justify-content: space-between; align-items: center; padding: 0 4px 6px; }
+  .badge { font-size: 10px; border-radius: 999px; padding: 2px 8px; }
+  .badge.ok { background: #ecfdf5; color: #059669; }
+  .badge.no { background: #f3f4f6; color: #9ca3af; }
+  .dish-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #f9fafb; gap: 8px; }
+  .dish-row:last-child { border-bottom: 0; }
+  .dish-name { font-size: 14px; }
+  .dish-name .tag { font-size: 10px; color: #f59e0b; margin-left: 4px; }
+  .dish-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+  .stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .stepper .sum { font-size: 12px; color: #9ca3af; width: 52px; text-align: right; }
+  .btn-circle { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .btn-circle.plus { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+  .btn-circle:active { opacity: .8; }
+  .qty { width: 20px; text-align: center; font-weight: 600; }
+  .result { border: 2px solid transparent; }
+  .result.best { border-color: #fbbf24; }
+  .result.off { opacity: .55; }
+  .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .ch-badge { background: #fff7ed; color: #ea580c; font-size: 10px; border-radius: 6px; padding: 2px 6px; }
+  .best-badge { background: #fbbf24; color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
+  .price { font-size: 20px; font-weight: 700; }
+  .save { font-size: 12px; color: #059669; text-align: right; }
+  .empty { background: rgba(255,255,255,.7); border-radius: 16px; padding: 24px; text-align: center; color: #9ca3af; font-size: 14px; }
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #f3f4f6; display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 40; }
+  .nav button { flex: 1; border: 0; background: transparent; padding: 12px 0; font-size: 13px; color: #9ca3af; cursor: pointer; }
+  .nav button.on { color: #f59e0b; font-weight: 700; }
+  .nav .ico { font-size: 18px; display: block; margin-bottom: 2px; }
+  .btn { border: 0; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+  .btn.primary { background: #f59e0b; color: #fff; }
+  .btn.primary:active { background: #d97706; }
+  .btn.ghost { background: #fff; color: #6b7280; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+  .modal { background: #fff; width: 100%; max-width: 430px; border-radius: 18px 18px 0 0; padding: 20px; max-height: 90vh; overflow-y: auto; }
+  @media (min-width: 500px) { .modal-mask { align-items: center; } .modal { border-radius: 18px; } }
+  .modal h3 { margin-bottom: 14px; }
+  .modal .close { float: right; border: 0; background: none; font-size: 20px; color: #9ca3af; cursor: pointer; }
+  .checkline { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #374151; margin: 6px 0; }
+  .pill { border: 0; border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  .pill.on { background: #ecfdf5; color: #059669; }
+  .pill.off { background: #f3f4f6; color: #9ca3af; }
+  .pill.blue { background: #eff6ff; color: #3b82f6; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 10px; }
+  .chip { flex-shrink: 0; border: 0; border-radius: 999px; padding: 6px 12px; font-size: 12px; background: #fff; color: #4b5563; box-shadow: 0 1px 2px rgba(0,0,0,.06); cursor: pointer; }
+  .chip.on { background: #f59e0b; color: #fff; }
+  .searchbox { position: relative; margin-bottom: 10px; }
+  .searchbox input { padding-left: 34px; }
+  .searchbox .ico { position: absolute; left: 12px; top: 10px; color: #9ca3af; }
+  .item-actions { display: flex; gap: 6px; }
+  .iconbtn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .iconbtn.danger { color: #f87171; }
+  .iconbtn:active { background: #f9fafb; }
+  .backlink { color: #6b7280; font-size: 13px; text-decoration: none; }
+  h2.sec { font-size: 14px; font-weight: 600; color: #374151; margin: 4px 0 10px; padding: 0 4px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .totline { display: flex; justify-content: space-between; font-size: 14px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="nav" id="nav"></div>
+<div id="modal"></div>
+
+<script>
+// ---------- 默认数据 ----------
+var DEFAULT_COUPONS = [
+  { id: "mt49",  channel: "美团线上", name: "49代100",          pay: 49,   face: 100, avail: "lunch", note: "仅午市可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
+  { id: "mt658", channel: "美团线上", name: "65.8代100",        pay: 65.8, face: 100, avail: "all",   note: "全天可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
+  { id: "md68",  channel: "门店线下", name: "68代100（会员价）", pay: 68,   face: 100, avail: "all",   note: "会员价全天可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
+  { id: "md58",  channel: "门店线下", name: "58代100（周三）",   pay: 58,   face: 100, avail: "wed",   note: "每周三专享；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" }
+];
+
+var CATEGORY_DEFAULTS = [
+  { name: "新品捞汁系列", couponUsable: true },
+  { name: "配菜", couponUsable: true },
+  { name: "锅底", couponUsable: false },
+  { name: "特色烧烤", couponUsable: false },
+  { name: "烧烤系列", couponUsable: false },
+  { name: "新品上市小龙虾", couponUsable: false },
+  { name: "鲜啤系列", couponUsable: false },
+  { name: "会员酒水", couponUsable: false },
+  { name: "饮料", couponUsable: false },
+  { name: "甜饮品", couponUsable: false },
+  { name: "现做飞饼-福州小吃", couponUsable: false }
+];
+
+var _n = 0;
+function sd(cat, name, price, unit, tag, off) {
+  _n++;
+  var catDef = CATEGORY_DEFAULTS.filter(function (c) { return c.name === cat; })[0];
+  return {
+    id: "dish-seed-" + _n, cat: cat, name: name, price: price,
+    unit: unit || "份", tag: tag || "", off: !!off,
+    usable: catDef ? catDef.couponUsable !== false : true
+  };
+}
+
+var DEFAULT_DISHES = [
+  sd("锅底","醉鸡煲锅底",12,"份","",true), sd("锅底","沙茶风味锅底",12), sd("锅底","自助调料",4),
+  sd("锅底","花胶鸡锅底",12), sd("锅底","猪肚鸡锅底",12), sd("锅底","冬阴功锅底",12),
+  sd("锅底","清油香辣锅底",12), sd("锅底","牛油香辣锅底",12), sd("锅底","贵州红酸汤锅底",12),
+  sd("锅底","菌菇锅底",12), sd("锅底","番茄锅底",12), sd("锅底","石斑鱼锅底",12,"份","",true),
+  sd("锅底","加工费",2,"份","",true), sd("锅底","海鲜粥锅底",12,"份","",true), sd("锅底","养生牛腩滋补锅",12),
+  sd("特色烧烤","烤鲍鱼（一串2只）",12.8,"份","",true), sd("特色烧烤","烤鱿鱼串",8,"串","会员价"),
+  sd("特色烧烤","烤羊肉串",4,"串"), sd("特色烧烤","火焰牛肉串（辣）",6,"串"), sd("特色烧烤","烤掌中宝",3,"串"),
+  sd("特色烧烤","蒜蓉粉丝花蛤",13), sd("特色烧烤","烤年糕条",4,"串"), sd("特色烧烤","黑椒牛排",16),
+  sd("特色烧烤","香煎猪排",9.9), sd("特色烧烤","一把胸口油（5串）",9.9), sd("特色烧烤","把把鸡翅尖（10串）",9.9,"串"),
+  sd("特色烧烤","蒜蓉粉丝虾",18),
+  sd("烧烤系列","烤虾",15),
+  sd("新品上市小龙虾","香辣小龙虾",49,"斤","多规格49-98",true), sd("新品上市小龙虾","十三香小龙虾",49,"份","多规格49-98",true),
+  sd("新品上市小龙虾","蒜蓉小龙虾",49,"份","多规格49-98",true), sd("新品上市小龙虾","清蒸小龙虾",49,"斤","多规格49-98",true),
+  sd("鲜啤系列","青岛经典鲜啤",15,"份","多规格15-28"),
+  sd("会员酒水","雪花纯生",7,"瓶","会员价"), sd("会员酒水","超级勇闯",7,"瓶","会员价"), sd("会员酒水","275百威",8,"瓶"),
+  sd("会员酒水","330瓶喜力",10,"瓶"), sd("会员酒水","330福佳白",10,"瓶"), sd("会员酒水","雪花啤酒",7,"份"),
+  sd("会员酒水","330悠世白啤",10,"份"), sd("会员酒水","青岛经典",8,"份"), sd("会员酒水","青岛纯生",10,"份"),
+  sd("会员酒水","青岛白啤",12,"份"), sd("会员酒水","青岛零糖啤酒",10,"份"), sd("会员酒水","朝日啤酒",10,"份"),
+  sd("会员酒水","无糖勇闯天涯",8,"份"), sd("会员酒水","M17精酿啤酒",28,"份"), sd("会员酒水","古月龙山",35,"份"),
+  sd("会员酒水","石库门黄酒",38,"份"), sd("会员酒水","教士白啤",10,"份","会员价"), sd("会员酒水","原绍黄酒",38,"瓶","会员价"),
+  sd("会员酒水","百威纯生",10,"瓶"), sd("会员酒水","100ML小红星",10,"瓶"), sd("会员酒水","100ML小郎酒",18,"瓶","会员价"),
+  sd("会员酒水","科罗娜",10,"瓶","会员价"), sd("会员酒水","蓝妹",10,"瓶","会员价"),
+  sd("饮料","东方树叶",7), sd("饮料","王老吉",5), sd("饮料","健力宝",6), sd("饮料","芬达听装",5,"听"),
+  sd("饮料","雪碧听装",5,"听"), sd("饮料","可口可乐听装",5,"听"), sd("饮料","旺仔牛奶",7), sd("饮料","果粒橙",6),
+  sd("饮料","芬达、可乐、雪碧玻璃装",2), sd("饮料","百岁山",3), sd("饮料","无糖雪碧、芬达",5), sd("饮料","红绿茶",5),
+  sd("饮料","清茶蜜茶",5,"瓶","会员价"), sd("饮料","加多宝",5), sd("饮料","怡泉苏打水",6,"瓶","会员价"),
+  sd("饮料","维他柠檬",6,"份","会员价"), sd("饮料","椰奶",7,"份","会员价"), sd("饮料","白桃乌龙茶",15),
+  sd("饮料","维他奶",6,"份","会员价"), sd("饮料","望山楂、望柠檬",7,"份","会员价"), sd("饮料","宋柚汁、乳酸菌",8),
+  sd("饮料","大窑汽水",8), sd("饮料","雪碧/可乐",2,"份","",true), sd("饮料","打包盒",2), sd("饮料","光明椰子水",8,"瓶"),
+  sd("饮料","九日气泡水",8), sd("饮料","驾客进口能量饮料",10), sd("饮料","大瓶果粒橙1.25L",15), sd("饮料","文旦柚汁",7),
+  sd("饮料","小斛鲜杨梅汁",10), sd("饮料","小石斛汁",8), sd("饮料","纯余吉",7,"份","会员价"), sd("饮料","窖果粒",8,"份","会员价"),
+  sd("饮料","红牛",8,"份","会员价"), sd("饮料","椰树椰汁",20,"份","会员价"), sd("饮料","三得利乌龙茶",7,"瓶","会员价"),
+  sd("甜饮品","小瓶鲜榨",15), sd("甜饮品","扎壶鲜榨",28,"份","",true), sd("甜饮品","自制饮品",15),
+  sd("甜饮品","马蹄银耳饮",9.9), sd("甜饮品","手打柠檬茶",15), sd("甜饮品","无花果冰柠茶",15,"杯"),
+  sd("甜饮品","霸气柠檬",15,"杯","",true), sd("甜饮品","无花果风味牛奶冰",18,"份","",true), sd("甜饮品","红豆冰豆花",8),
+  sd("甜饮品","水果桶",18,"杯","",true), sd("甜饮品","鸭屎香柠檬茶",15,"杯"), sd("甜饮品","暴打渣男",15),
+  sd("甜饮品","白桃乌龙",15,"份","",true), sd("甜饮品","杨枝甘露盒子雪花冰",18), sd("甜饮品","草莓盒子雪花冰",18),
+  sd("甜饮品","西芹凤梨",15,"份","",true), sd("甜饮品","霸气青柠",15),
+  sd("现做飞饼-福州小吃","菠萝飞饼",28), sd("现做飞饼-福州小吃","香蕉飞饼",28), sd("现做飞饼-福州小吃","海蛎饼",10,"份","",true),
+  sd("现做飞饼-福州小吃","榴莲飞饼",30), sd("现做飞饼-福州小吃","葱花鸡蛋飞饼",28), sd("现做飞饼-福州小吃","福州光饼",15,"份","会员价",true),
+  sd("现做飞饼-福州小吃","福州肉燕",15,"份","",true), sd("现做飞饼-福州小吃","鳗鱼滑",4,"份","",true),
+  sd("现做飞饼-福州小吃","千层年糕",15,"份","",true), sd("现做飞饼-福州小吃","福州燕饺",15,"份","",true),
+  sd("现做飞饼-福州小吃","福州海蛎饼",10,"份","",true), sd("现做飞饼-福州小吃","烤牛肉串小份",10,"份","",true),
+  sd("现做飞饼-福州小吃","翡翠酱肉包",8)
+];
+
+// ---------- 存储 ----------
+function lsGet(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    var parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+function loadCoupons() { return lsGet("jqcalc/coupons/v1", DEFAULT_COUPONS); }
+function loadDishes()  { return lsGet("jqcalc/dishes/v1", DEFAULT_DISHES); }
+function newId() { return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); }
+
+// ---------- 工具 ----------
+function round2(n) { return Math.round((Number(n) + Number.EPSILON) * 100) / 100; }
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return "--";
+  var v = round2(n);
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0$/, "");
+}
+function esc(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ---------- 计算 ----------
+function calcChannel(coupon, ctx) {
+  var face = Number(coupon.face) || 0, pay = Number(coupon.pay) || 0;
+  var available = true, reason = "";
+  if (coupon.avail === "lunch" && !ctx.isLunch) { available = false; reason = "仅午市可用"; }
+  if (coupon.avail === "wed" && !ctx.isWednesday) { available = false; reason = "仅周三可用"; }
+  if (ctx.eligible < face) {
+    return { coupon: coupon, available: false, reason: reason || ("满" + fmt(face) + "元才能用"), count: 0, total: null };
+  }
+  var count = pay >= face ? 0 : (ctx.stack ? Math.floor(ctx.eligible / face) : 1);
+  var total = round2(count * pay + (ctx.eligible - count * face) + ctx.excluded);
+  return { coupon: coupon, available: available, reason: reason, count: count, total: total };
+}
+function rankChannels(coupons, ctx) {
+  var rows = coupons.map(function (c) { return calcChannel(c, ctx); });
+  var usable = rows.filter(function (r) { return r.available; });
+  var others = rows.filter(function (r) { return !r.available; });
+  usable.sort(function (a, b) { return a.total - b.total; });
+  var best = usable.length ? usable[0].total : null;
+  usable = usable.map(function (r) { r.isBest = r.total === best; return r; });
+  return usable.concat(others);
+}
+
+// ---------- 状态 ----------
+var state = {
+  tab: "calc",
+  mode: "total",
+  dayIdx: new Date().getDay(),
+  isLunch: true,
+  stack: true,
+  totalInput: "",
+  excludedInput: "",
+  qty: {},
+  coupons: loadCoupons(),
+  dishes: loadDishes(),
+  keyword: "",
+  catFilter: "全部",
+  couponModal: null,   // null | {editingId, form}
+  dishModal: null
+};
+
+var WEEK = ["周日","周一","周二","周三","周四","周五","周六"];
+var EXCLUDED_HINT = "酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼均不可用券";
+
+function totals() {
+  var all = 0, usable = 0, picked = false;
+  state.dishes.forEach(function (d) {
+    var q = state.qty[d.id] || 0;
+    if (!q) return;
+    picked = true;
+    var sum = round2(q * Number(d.price || 0));
+    all += sum;
+    if (d.usable) usable += sum;
+  });
+  return { all: round2(all), usable: round2(usable), excluded: round2(all - usable), picked: picked };
+}
+
+function ctx() {
+  var t = totals();
+  var eligible, excluded, grand, hasInput;
+  if (state.mode === "total") {
+    eligible = Math.max(0, round2(Number(state.totalInput || 0) - Number(state.excludedInput || 0)));
+    excluded = round2(Number(state.excludedInput || 0));
+    grand = round2(Number(state.totalInput || 0));
+    hasInput = Number(state.totalInput) > 0;
+  } else {
+    eligible = t.usable; excluded = t.excluded; grand = t.all; hasInput = t.picked;
+  }
+  return {
+    eligible: eligible, excluded: excluded, grand: grand, hasInput: hasInput,
+    isWednesday: state.dayIdx === 3, isLunch: state.isLunch, stack: state.stack
+  };
+}
+
+// ---------- 渲染 ----------
+var app = document.getElementById("app");
+var navEl = document.getElementById("nav");
+var modalEl = document.getElementById("modal");
+
+function render() {
+  renderNav();
+  modalEl.innerHTML = state.couponModal ? renderCouponModal() : (state.dishModal ? renderDishModal() : "");
+  if (state.tab === "calc") app.innerHTML = renderCalc();
+  else if (state.tab === "coupons") app.innerHTML = renderCoupons();
+  else app.innerHTML = renderDishes();
+  window.scrollTo(0, 0);
+}
+
+function renderNav() {
+  var items = [
+    ["calc", "🧮", "算账"],
+    ["coupons", "🎫", "券规则"],
+    ["dishes", "🍽️", "菜品"]
+  ];
+  navEl.innerHTML = items.map(function (it) {
+    return '<button class="' + (state.tab === it[0] ? "on" : "") + '" onclick="go(\'' + it[0] + '\')"><span class="ico">' + it[1] + '</span>' + it[2] + '</button>';
+  }).join("");
+}
+
+function renderCalc() {
+  var c = ctx();
+  var h = '';
+  h += '<div class="header"><div class="logo">¥</div><div><h1>代金券算账</h1><p>输入金额，看看哪个渠道用券最划算</p></div></div>';
+
+  // 场景设置
+  h += '<div class="card">';
+  h += '<div class="row">';
+  h += '<select style="flex:1" onchange="setDay(this.value)">';
+  WEEK.forEach(function (w, i) {
+    h += '<option value="' + i + '"' + (state.dayIdx === i ? " selected" : "") + '>' + w + (i === new Date().getDay() ? "（今天）" : "") + '</option>';
+  });
+  h += '</select>';
+  h += '<div class="seg">';
+  h += '<button class="' + (state.isLunch ? "on" : "") + '" onclick="setLunch(true)">午市</button>';
+  h += '<button class="' + (!state.isLunch ? "on" : "") + '" onclick="setLunch(false)">晚市</button>';
+  h += '</div></div>';
+  h += '<div class="switchline"><span>允许一次用多张券（每满100元用一张）</span>';
+  h += '<input type="checkbox" ' + (state.stack ? "checked" : "") + ' onchange="setStack(this.checked)" style="width:18px;height:18px;accent-color:#f59e0b"></div>';
+  h += '</div>';
+
+  // 模式切换
+  h += '<div class="tabs">';
+  h += '<button class="' + (state.mode === "total" ? "on" : "") + '" onclick="setMode(\'total\')">按总额算</button>';
+  h += '<button class="' + (state.mode === "dishes" ? "on" : "") + '" onclick="setMode(\'dishes\')">按菜品点选</button>';
+  h += '</div>';
+
+  if (state.mode === "total") {
+    h += '<div class="card">';
+    h += '<label class="small" style="margin-top:0">账单总金额（元）</label>';
+    h += '<input type="number" inputmode="decimal" placeholder="例如 460" value="' + esc(state.totalInput) + '" oninput="setTotal(this.value)">';
+    h += '<label class="small">其中不可用券的金额（元）</label>';
+    h += '<input type="number" inputmode="decimal" placeholder="不填则默认全部可用券" value="' + esc(state.excludedInput) + '" oninput="setExcluded(this.value)">';
+    h += '<p class="hint">' + EXCLUDED_HINT + '</p>';
+    h += '</div>';
+  } else {
+    var t = totals();
+    h += '<div class="card">';
+    h += '<div class="totline"><span style="color:#6b7280">已点合计</span><b>￥' + fmt(t.all) + '</b></div>';
+    h += '<div class="totline"><span style="color:#6b7280">可用券部分</span><b style="color:#059669">￥' + fmt(t.usable) + '</b></div>';
+    h += '<div class="totline"><span style="color:#6b7280">不可用券部分</span><b style="color:#9ca3af">￥' + fmt(t.excluded) + '</b></div>';
+    h += '</div>';
+    var catNames = CATEGORY_DEFAULTS.map(function (x) { return x.name; });
+    var map = {};
+    catNames.forEach(function (n) { map[n] = []; });
+    state.dishes.forEach(function (d) {
+      if (d.off) return;
+      if (!map[d.cat]) map[d.cat] = [];
+      map[d.cat].push(d);
+    });
+    catNames.forEach(function (cat) {
+      var list = map[cat];
+      if (!list || !list.length) return;
+      var catDef = CATEGORY_DEFAULTS.filter(function (x) { return x.name === cat; })[0];
+      h += '<div class="dish-cat"><h3>' + esc(cat) + '<span class="badge ' + (catDef && catDef.couponUsable ? "ok" : "no") + '">' + (catDef && catDef.couponUsable ? "可用券" : "不可用券") + '</span></h3>';
+      list.forEach(function (d) {
+        var q = state.qty[d.id] || 0;
+        h += '<div class="dish-row"><div style="min-width:0">';
+        h += '<div class="dish-name">' + esc(d.name) + (d.tag ? '<span class="tag">' + esc(d.tag) + '</span>' : '') + '</div>';
+        h += '<div class="dish-meta">￥' + fmt(d.price) + '/' + esc(d.unit) + (d.usable ? "" : " · 不可用券") + '</div>';
+        h += '</div><div class="stepper">';
+        if (q > 0) h += '<span class="sum">￥' + fmt(q * d.price) + '</span>';
+        h += '<button class="btn-circle" onclick="chgQty(\'' + d.id + ',-1\')">−</button>';
+        h += '<span class="qty">' + q + '</span>';
+        h += '<button class="btn-circle plus" onclick="chgQty(\'' + d.id + ',1\')">＋</button>';
+        h += '</div></div>';
+      });
+      h += '</div>';
+    });
+    h += '<p class="hint" style="padding:0 4px">没有看到想点的菜？去「菜品」标签里添加或调整。</p>';
+  }
+
+  // 结果
+  if (c.hasInput) {
+    var rows = rankChannels(state.coupons, c);
+    h += '<h2 class="sec" style="margin-top:16px">各渠道应付对比</h2>';
+    h += '<div class="card"><div class="flex-between"><span style="color:#4b5563">不用券（原价）</span><span class="price">￥' + fmt(c.grand) + '</span></div></div>';
+    rows.forEach(function (r) {
+      var cls = "card result" + (r.available ? (r.isBest ? " best" : "") : " off");
+      h += '<div class="' + cls + '"><div class="result-top"><div>';
+      h += '<div><span class="ch-badge">' + esc(r.coupon.channel) + '</span> <b style="font-size:14px">' + esc(r.coupon.name) + '</b>';
+      if (r.available && r.isBest) h += '<span class="best-badge">最优惠</span>';
+      h += '</div>';
+      h += '<div class="hint" style="margin-top:4px">' + (r.available ? ("用" + r.count + "张 · ￥" + fmt(r.coupon.pay) + "代￥" + fmt(r.coupon.face)) : esc(r.reason)) + '</div>';
+      h += '</div><div><div class="price">￥' + fmt(r.total) + '</div>';
+      if (r.available && c.grand - r.total > 0) h += '<div class="save">省￥' + fmt(c.grand - r.total) + '</div>';
+      h += '</div></div></div>';
+    });
+    h += '<p class="hint" style="padding:0 4px">' + (c.eligible < 100
+      ? "可用券部分不足100元，所有代金券都达不到使用门槛。"
+      : "本次可用券金额￥" + fmt(c.eligible) + "，不可用券部分￥" + fmt(c.excluded) + "需原价支付。") + '</p>';
+  } else {
+    h += '<div class="empty" style="margin-top:8px">' + (state.mode === "total" ? "输入账单总金额后，这里会自动算出最优惠的用券方式" : "点选菜品后，这里会自动算出最优惠的用券方式") + '</div>';
+  }
+
+  h += '<p class="hint" style="text-align:center;margin-top:20px">数据仅保存在本机浏览器 · 券规则和菜品可在下方标签页管理</p>';
+  return h;
+}
+
+function renderCoupons() {
+  var h = '';
+  h += '<div class="header"><div><h1>券规则管理</h1><p style="margin-top:4px">修改后立即生效，保存在本机</p></div></div>';
+  h += '<div style="margin-bottom:12px"><button class="btn primary" onclick="openCouponAdd()">＋ 新增券规则</button></div>';
+  state.coupons.forEach(function (cp) {
+    var availLabel = cp.avail === "lunch" ? "仅午市" : (cp.avail === "wed" ? "仅周三" : "全天可用");
+    h += '<div class="card"><div class="result-top"><div>';
+    h += '<div><span class="ch-badge">' + esc(cp.channel) + '</span> <b>' + esc(cp.name) + '</b></div>';
+    h += '<div style="margin-top:6px;color:#6b7280">￥' + fmt(cp.pay) + ' 代 ￥' + fmt(cp.face) + ' · ' + availLabel + '</div>';
+    if (cp.note) h += '<div class="hint">' + esc(cp.note) + '</div>';
+    h += '</div><div class="item-actions">';
+    h += '<button class="iconbtn" onclick="openCouponEdit(\'' + cp.id + '\')">✎</button>';
+    h += '<button class="iconbtn danger" onclick="delCoupon(\'' + cp.id + '\')">🗑</button>';
+    h += '</div></div></div>';
+  });
+  if (!state.coupons.length) h += '<div class="empty">还没有券规则，点上方按钮新增</div>';
+  h += '<button class="btn ghost" style="margin-top:8px" onclick="resetCoupons()">恢复默认券规则</button>';
+  return h;
+}
+
+function renderDishes() {
+  var h = '';
+  h += '<div class="header"><div><h1>菜品管理</h1><p style="margin-top:4px">勾掉「可用券」的菜品在算账时会归入不可用券部分</p></div></div>';
+  h += '<div style="margin-bottom:12px"><button class="btn primary" onclick="openDishAdd()">＋ 新增菜品</button></div>';
+  h += '<div class="searchbox"><span class="ico">🔍</span><input type="search" placeholder="搜索菜品" value="' + esc(state.keyword) + '" oninput="setKeyword(this.value)"></div>';
+  var catSet = CATEGORY_DEFAULTS.map(function (c) { return c.name; });
+  state.dishes.forEach(function (d) { if (catSet.indexOf(d.cat) < 0) catSet.push(d.cat); });
+  var cats = ["全部"].concat(catSet);
+  h += '<div class="chips">';
+  cats.forEach(function (cn) {
+    h += '<button class="chip ' + (state.catFilter === cn ? "on" : "") + '" onclick="setCatFilter(\'' + esc(cn) + '\')">' + esc(cn) + '</button>';
+  });
+  h += '</div>';
+  var kw = state.keyword.trim();
+  var list = state.dishes.filter(function (d) {
+    if (state.catFilter !== "全部" && d.cat !== state.catFilter) return false;
+    if (kw && (d.name || "").indexOf(kw) < 0) return false;
+    return true;
+  });
+  list.forEach(function (d) {
+    h += '<div class="card" style="padding:12px"><div class="result-top"><div style="min-width:0">';
+    h += '<div><b style="font-size:14px">' + esc(d.name) + '</b>' + (d.off ? ' <span class="badge no">停售</span>' : '') + '</div>';
+    h += '<div class="hint">' + esc(d.cat) + ' · ￥' + fmt(d.price) + '/' + esc(d.unit) + (d.tag ? ' · ' + esc(d.tag) : '') + '</div>';
+    h += '</div><div class="item-actions">';
+    h += '<button class="iconbtn" onclick="openDishEdit(\'' + d.id + '\')">✎</button>';
+    h += '<button class="iconbtn danger" onclick="delDish(\'' + d.id + '\')">🗑</button>';
+    h += '</div></div>';
+    h += '<div style="margin-top:8px;display:flex;gap:8px">';
+    h += '<button class="pill ' + (d.usable ? "on" : "off") + '" onclick="toggleDish(\'' + d.id + '\',\'usable\')">' + (d.usable ? "✓ 可用券" : "不可用券") + '</button>';
+    h += '<button class="pill ' + (d.off ? "off" : "blue") + '" onclick="toggleDish(\'' + d.id + '\',\'off\')">' + (d.off ? "已停售" : "在售") + '</button>';
+    h += '</div></div>';
+  });
+  if (!list.length) h += '<div class="empty">没有匹配的菜品</div>';
+  h += '<button class="btn ghost" style="margin-top:8px" onclick="resetDishes()">恢复默认菜品</button>';
+  return h;
+}
+
+function renderCouponModal() {
+  var m = state.couponModal, f = m.form;
+  var availOpts = [["all", "全天可用"], ["lunch", "仅午市"], ["wed", "仅周三"]];
+  var h = '<div class="modal-mask" onclick="if(event.target===this)closeModal()"><div class="modal">';
+  h += '<h3>' + (m.editingId ? "编辑券规则" : "新增券规则") + '<button class="close" onclick="closeModal()">×</button></h3>';
+  h += '<label class="small" style="margin-top:0">名称</label><input type="text" placeholder="如 39.9代100" value="' + esc(f.name) + '" oninput="cfSet(\'name\',this.value)">';
+  h += '<div class="grid2" style="margin-top:10px">';
+  h += '<div><label class="small">渠道</label><select onchange="cfSet(\'channel\',this.value)">' + ["美团线上","门店线下","其他"].map(function (o) { return '<option ' + (f.channel === o ? "selected" : "") + '>' + o + '</option>'; }).join("") + '</select></div>';
+  h += '<div><label class="small">使用限制</label><select onchange="cfSet(\'avail\',this.value)">' + availOpts.map(function (o) { return '<option value="' + o[0] + '" ' + (f.avail === o[0] ? "selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></div>';
+  h += '<div><label class="small">券价（元）</label><input type="number" inputmode="decimal" value="' + esc(f.pay) + '" oninput="cfSet(\'pay\',this.value)"></div>';
+  h += '<div><label class="small">面值（元）</label><input type="number" inputmode="decimal" value="' + esc(f.face) + '" oninput="cfSet(\'face\',this.value)"></div>';
+  h += '</div>';
+  h += '<label class="small">备注（不可用范围等）</label><input type="text" value="' + esc(f.note) + '" oninput="cfSet(\'note\',this.value)">';
+  h += '<button class="btn primary" style="margin-top:18px" onclick="saveCoupon()">保存</button>';
+  h += '</div></div>';
+  return h;
+}
+
+function renderDishModal() {
+  var m = state.dishModal, f = m.form;
+  var catSet = CATEGORY_DEFAULTS.map(function (c) { return c.name; });
+  state.dishes.forEach(function (d) { if (catSet.indexOf(d.cat) < 0) catSet.push(d.cat); });
+  var h = '<div class="modal-mask" onclick="if(event.target===this)closeModal()"><div class="modal">';
+  h += '<h3>' + (m.editingId ? "编辑菜品" : "新增菜品") + '<button class="close" onclick="closeModal()">×</button></h3>';
+  h += '<label class="small" style="margin-top:0">菜名</label><input type="text" value="' + esc(f.name) + '" oninput="dfSet(\'name\',this.value)">';
+  h += '<div class="grid2" style="margin-top:10px">';
+  h += '<div><label class="small">分类</label><input type="text" list="cats" value="' + esc(f.cat) + '" oninput="dfSet(\'cat\',this.value)"><datalist id="cats">' + catSet.map(function (c2) { return '<option value="' + esc(c2) + '">'; }).join("") + '</datalist></div>';
+  h += '<div><label class="small">单位</label><input type="text" placeholder="份 / 串 / 斤 / 瓶" value="' + esc(f.unit) + '" oninput="dfSet(\'unit\',this.value)"></div>';
+  h += '<div><label class="small">价格（元）</label><input type="number" inputmode="decimal" value="' + esc(f.price) + '" oninput="dfSet(\'price\',this.value)"></div>';
+  h += '<div><label class="small">标签（如会员价）</label><input type="text" value="' + esc(f.tag) + '" oninput="dfSet(\'tag\',this.value)"></div>';
+  h += '</div>';
+  h += '<div style="margin-top:10px">';
+  h += '<label class="checkline"><input type="checkbox" ' + (f.usable ? "checked" : "") + ' onchange="dfSet(\'usable\',this.checked)" style="width:18px;height:18px;accent-color:#059669"> 可用代金券</label>';
+  h += '<label class="checkline"><input type="checkbox" ' + (f.off ? "checked" : "") + ' onchange="dfSet(\'off\',this.checked)" style="width:18px;height:18px;accent-color:#6b7280"> 已停售（点单页隐藏）</label>';
+  h += '</div>';
+  h += '<button class="btn primary" style="margin-top:18px" onclick="saveDish()">保存</button>';
+  h += '</div></div>';
+  return h;
+}
+
+// ---------- 事件 ----------
+window.go = function (tab) { state.tab = tab; render(); };
+window.setDay = function (v) { state.dayIdx = Number(v); render(); };
+window.setLunch = function (v) { state.isLunch = v; render(); };
+window.setStack = function (v) { state.stack = v; render(); };
+window.setMode = function (m) { state.mode = m; render(); };
+window.setTotal = function (v) { state.totalInput = v; render(); };
+window.setExcluded = function (v) { state.excludedInput = v; render(); };
+window.chgQty = function (arg) {
+  var parts = arg.split(",");
+  var id = parts[0], delta = Number(parts[1]);
+  var v = (state.qty[id] || 0) + delta;
+  if (v <= 0) delete state.qty[id]; else state.qty[id] = v;
+  render();
+};
+window.setKeyword = function (v) { state.keyword = v; render(); };
+window.setCatFilter = function (v) { state.catFilter = v; render(); };
+window.closeModal = function () { state.couponModal = null; state.dishModal = null; render(); };
+
+window.openCouponAdd = function () {
+  state.couponModal = { editingId: null, form: { name: "", channel: "美团线上", pay: "", face: 100, avail: "all", note: "" } };
+  render();
+};
+window.openCouponEdit = function (id) {
+  var cp = state.coupons.filter(function (c) { return c.id === id; })[0];
+  if (!cp) return;
+  state.couponModal = { editingId: id, form: JSON.parse(JSON.stringify(cp)) };
+  render();
+};
+window.cfSet = function (k, v) { state.couponModal.form[k] = v; };
+window.saveCoupon = function () {
+  var m = state.couponModal, f = m.form;
+  var pay = Number(f.pay), face = Number(f.face);
+  if (!f.name.trim() || !pay || !face) { alert("请填写名称、券价和面值"); return; }
+  f.name = f.name.trim(); f.pay = pay; f.face = face;
+  if (m.editingId) {
+    state.coupons = state.coupons.map(function (c) { return c.id === m.editingId ? Object.assign({}, c, f) : c; });
+  } else {
+    f.id = newId();
+    state.coupons = state.coupons.concat([f]);
+  }
+  lsSet("jqcalc/coupons/v1", state.coupons);
+  state.couponModal = null;
+  state.tab = "coupons";
+  render();
+};
+window.delCoupon = function (id) {
+  if (!confirm("确定删除这条券规则？")) return;
+  state.coupons = state.coupons.filter(function (c) { return c.id !== id; });
+  lsSet("jqcalc/coupons/v1", state.coupons);
+  render();
+};
+window.resetCoupons = function () {
+  if (!confirm("恢复为默认的4条券规则？当前自定义规则会被覆盖。")) return;
+  state.coupons = JSON.parse(JSON.stringify(DEFAULT_COUPONS));
+  lsSet("jqcalc/coupons/v1", state.coupons);
+  render();
+};
+
+window.openDishAdd = function () {
+  state.dishModal = { editingId: null, form: { name: "", cat: state.catFilter === "全部" ? CATEGORY_DEFAULTS[0].name : state.catFilter, price: "", unit: "份", tag: "", usable: true, off: false } };
+  render();
+};
+window.openDishEdit = function (id) {
+  var d = state.dishes.filter(function (x) { return x.id === id; })[0];
+  if (!d) return;
+  state.dishModal = { editingId: id, form: JSON.parse(JSON.stringify(d)) };
+  render();
+};
+window.dfSet = function (k, v) { state.dishModal.form[k] = v; };
+window.saveDish = function () {
+  var m = state.dishModal, f = m.form;
+  var price = Number(f.price);
+  if (!f.name.trim() || isNaN(price)) { alert("请填写菜名和价格"); return; }
+  f.name = f.name.trim(); f.price = price;
+  if (m.editingId) {
+    state.dishes = state.dishes.map(function (d) { return d.id === m.editingId ? Object.assign({}, d, f) : d; });
+  } else {
+    f.id = newId();
+    state.dishes = [f].concat(state.dishes);
+  }
+  lsSet("jqcalc/dishes/v1", state.dishes);
+  state.dishModal = null;
+  state.tab = "dishes";
+  render();
+};
+window.delDish = function (id) {
+  if (!confirm("确定删除这个菜品？")) return;
+  state.dishes = state.dishes.filter(function (d) { return d.id !== id; });
+  lsSet("jqcalc/dishes/v1", state.dishes);
+  render();
+};
+window.toggleDish = function (id, key) {
+  state.dishes = state.dishes.map(function (d) { if (d.id === id) { var n = Object.assign({}, d); n[key] = !n[key]; return n; } return d; });
+  lsSet("jqcalc/dishes/v1", state.dishes);
+  render();
+};
+window.resetDishes = function () {
+  if (!confirm("恢复为按门店截图整理的默认菜品？你新增或修改过的菜品会被覆盖。")) return;
+  state.dishes = JSON.parse(JSON.stringify(DEFAULT_DISHES));
+  lsSet("jqcalc/dishes/v1", state.dishes);
+  render();
+};
+
+render();
+</script>
+</body>
+</html>
