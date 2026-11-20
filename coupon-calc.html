@@ -99,10 +99,9 @@
 <script>
 // ---------- 默认数据 ----------
 var DEFAULT_COUPONS = [
-  { id: "mt49",  channel: "美团线上", name: "49代100",          pay: 49,   face: 100, avail: "lunch", note: "仅午市可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
-  { id: "mt658", channel: "美团线上", name: "65.8代100",        pay: 65.8, face: 100, avail: "all",   note: "全天可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
-  { id: "md68",  channel: "门店线下", name: "68代100（会员价）", pay: 68,   face: 100, avail: "all",   note: "会员价全天可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
-  { id: "md58",  channel: "门店线下", name: "58代100（周三）",   pay: 58,   face: 100, avail: "wed",   note: "每周三专享；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" }
+  { id: "mt658", type: "voucher",  channel: "美团线上", name: "65.8代100",        pay: 65.8, face: 100, avail: "all",   note: "全天可用；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
+  { id: "md68",  type: "discount", channel: "门店线下", name: "菜金68折（会员价）", rate: 68, avail: "all",   note: "会员价全天可用；对可用券菜品部分打68折，不足100元也能打折；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" },
+  { id: "md58",  type: "voucher",  channel: "门店线下", name: "58代100（周三）",   pay: 58,   face: 100, avail: "wed",   note: "每周三专享；酒水饮料、锅底蘸料、小吃甜品、龙虾烧烤、飞饼不可用" }
 ];
 
 var CATEGORY_DEFAULTS = [
@@ -189,7 +188,7 @@ function lsGet(key, fallback) {
 function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
 }
-function loadCoupons() { return lsGet("jqcalc/coupons/v1", DEFAULT_COUPONS); }
+function loadCoupons() { return lsGet("jqcalc/coupons/v2", DEFAULT_COUPONS); }
 function loadDishes()  { return lsGet("jqcalc/dishes/v1", DEFAULT_DISHES); }
 function newId() { return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8); }
 
@@ -206,10 +205,14 @@ function esc(s) {
 
 // ---------- 计算 ----------
 function calcChannel(coupon, ctx) {
-  var face = Number(coupon.face) || 0, pay = Number(coupon.pay) || 0;
   var available = true, reason = "";
   if (coupon.avail === "lunch" && !ctx.isLunch) { available = false; reason = "仅午市可用"; }
   if (coupon.avail === "wed" && !ctx.isWednesday) { available = false; reason = "仅周三可用"; }
+  if (coupon.type === "discount") {
+    var rate = Number(coupon.rate) || 100;
+    return { coupon: coupon, available: available, reason: reason, count: 0, total: round2(ctx.eligible * rate / 100 + ctx.excluded) };
+  }
+  var face = Number(coupon.face) || 0, pay = Number(coupon.pay) || 0;
   if (ctx.eligible < face) {
     return { coupon: coupon, available: false, reason: reason || ("满" + fmt(face) + "元才能用"), count: 0, total: null };
   }
@@ -303,6 +306,38 @@ function renderNav() {
   }).join("");
 }
 
+function calcResultsHTML() {
+  var c = ctx();
+  var h = "";
+  if (c.hasInput) {
+    var hasDiscount = state.coupons.some(function (x) { return x.type === "discount"; });
+    var rows = rankChannels(state.coupons, c);
+    h += '<h2 class="sec" style="margin-top:16px">各渠道应付对比</h2>';
+    h += '<div class="card"><div class="flex-between"><span style="color:#4b5563">不用券（原价）</span><span class="price">￥' + fmt(c.grand) + '</span></div></div>';
+    rows.forEach(function (r) {
+      var cls = "card result" + (r.available ? (r.isBest ? " best" : "") : " off");
+      var desc;
+      if (!r.available) desc = esc(r.reason);
+      else if (r.coupon.type === "discount") desc = "可用券菜品￥" + fmt(c.eligible) + " 打" + fmt(r.coupon.rate) + "折";
+      else desc = "用" + r.count + "张 · ￥" + fmt(r.coupon.pay) + "代￥" + fmt(r.coupon.face);
+      h += '<div class="' + cls + '"><div class="result-top"><div>';
+      h += '<div><span class="ch-badge">' + esc(r.coupon.channel) + '</span> <b style="font-size:14px">' + esc(r.coupon.name) + '</b>';
+      if (r.available && r.isBest) h += '<span class="best-badge">最优惠</span>';
+      h += '</div>';
+      h += '<div class="hint" style="margin-top:4px">' + desc + '</div>';
+      h += '</div><div><div class="price">￥' + fmt(r.total) + '</div>';
+      if (r.available && c.grand - r.total > 0) h += '<div class="save">省￥' + fmt(c.grand - r.total) + '</div>';
+      h += '</div></div></div>';
+    });
+    h += '<p class="hint" style="padding:0 4px">' + (c.eligible < 100 && !hasDiscount
+      ? "可用券部分不足100元，代金券达不到使用门槛（折扣不受门槛限制）。"
+      : "本次可用券金额￥" + fmt(c.eligible) + "，不可用券部分￥" + fmt(c.excluded) + "需原价支付。") + '</p>';
+  } else {
+    h += '<div class="empty" style="margin-top:8px">' + (state.mode === "total" ? "输入账单总金额后，这里会自动算出最优惠的用券方式" : "点选菜品后，这里会自动算出最优惠的用券方式") + '</div>';
+  }
+  return h;
+}
+
 function renderCalc() {
   var c = ctx();
   var h = '';
@@ -376,27 +411,7 @@ function renderCalc() {
   }
 
   // 结果
-  if (c.hasInput) {
-    var rows = rankChannels(state.coupons, c);
-    h += '<h2 class="sec" style="margin-top:16px">各渠道应付对比</h2>';
-    h += '<div class="card"><div class="flex-between"><span style="color:#4b5563">不用券（原价）</span><span class="price">￥' + fmt(c.grand) + '</span></div></div>';
-    rows.forEach(function (r) {
-      var cls = "card result" + (r.available ? (r.isBest ? " best" : "") : " off");
-      h += '<div class="' + cls + '"><div class="result-top"><div>';
-      h += '<div><span class="ch-badge">' + esc(r.coupon.channel) + '</span> <b style="font-size:14px">' + esc(r.coupon.name) + '</b>';
-      if (r.available && r.isBest) h += '<span class="best-badge">最优惠</span>';
-      h += '</div>';
-      h += '<div class="hint" style="margin-top:4px">' + (r.available ? ("用" + r.count + "张 · ￥" + fmt(r.coupon.pay) + "代￥" + fmt(r.coupon.face)) : esc(r.reason)) + '</div>';
-      h += '</div><div><div class="price">￥' + fmt(r.total) + '</div>';
-      if (r.available && c.grand - r.total > 0) h += '<div class="save">省￥' + fmt(c.grand - r.total) + '</div>';
-      h += '</div></div></div>';
-    });
-    h += '<p class="hint" style="padding:0 4px">' + (c.eligible < 100
-      ? "可用券部分不足100元，所有代金券都达不到使用门槛。"
-      : "本次可用券金额￥" + fmt(c.eligible) + "，不可用券部分￥" + fmt(c.excluded) + "需原价支付。") + '</p>';
-  } else {
-    h += '<div class="empty" style="margin-top:8px">' + (state.mode === "total" ? "输入账单总金额后，这里会自动算出最优惠的用券方式" : "点选菜品后，这里会自动算出最优惠的用券方式") + '</div>';
-  }
+  h += '<div id="calc-results">' + calcResultsHTML() + '</div>';
 
   h += '<p class="hint" style="text-align:center;margin-top:20px">数据仅保存在本机浏览器 · 券规则和菜品可在下方标签页管理</p>';
   return h;
@@ -410,7 +425,7 @@ function renderCoupons() {
     var availLabel = cp.avail === "lunch" ? "仅午市" : (cp.avail === "wed" ? "仅周三" : "全天可用");
     h += '<div class="card"><div class="result-top"><div>';
     h += '<div><span class="ch-badge">' + esc(cp.channel) + '</span> <b>' + esc(cp.name) + '</b></div>';
-    h += '<div style="margin-top:6px;color:#6b7280">￥' + fmt(cp.pay) + ' 代 ￥' + fmt(cp.face) + ' · ' + availLabel + '</div>';
+    h += '<div style="margin-top:6px;color:#6b7280">' + (cp.type === "discount" ? ("菜金打" + fmt(cp.rate) + "折 · " + availLabel) : ("￥" + fmt(cp.pay) + " 代 ￥" + fmt(cp.face) + " · " + availLabel)) + '</div>';
     if (cp.note) h += '<div class="hint">' + esc(cp.note) + '</div>';
     h += '</div><div class="item-actions">';
     h += '<button class="iconbtn" onclick="openCouponEdit(\'' + cp.id + '\')">✎</button>';
@@ -465,11 +480,17 @@ function renderCouponModal() {
   var h = '<div class="modal-mask" onclick="if(event.target===this)closeModal()"><div class="modal">';
   h += '<h3>' + (m.editingId ? "编辑券规则" : "新增券规则") + '<button class="close" onclick="closeModal()">×</button></h3>';
   h += '<label class="small" style="margin-top:0">名称</label><input type="text" placeholder="如 39.9代100" value="' + esc(f.name) + '" oninput="cfSet(\'name\',this.value)">';
+  h += '<label class="small" style="margin-top:0">券类型</label><select onchange="cfSetRender(\'type\',this.value)">'
+    + [["voucher", "代金券（如 65.8代100）"], ["discount", "折扣（如 菜金68折）"]].map(function (o) { return '<option value="' + o[0] + '" ' + (f.type === o[0] ? "selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select>';
   h += '<div class="grid2" style="margin-top:10px">';
   h += '<div><label class="small">渠道</label><select onchange="cfSet(\'channel\',this.value)">' + ["美团线上","门店线下","其他"].map(function (o) { return '<option ' + (f.channel === o ? "selected" : "") + '>' + o + '</option>'; }).join("") + '</select></div>';
   h += '<div><label class="small">使用限制</label><select onchange="cfSet(\'avail\',this.value)">' + availOpts.map(function (o) { return '<option value="' + o[0] + '" ' + (f.avail === o[0] ? "selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></div>';
-  h += '<div><label class="small">券价（元）</label><input type="number" inputmode="decimal" value="' + esc(f.pay) + '" oninput="cfSet(\'pay\',this.value)"></div>';
-  h += '<div><label class="small">面值（元）</label><input type="number" inputmode="decimal" value="' + esc(f.face) + '" oninput="cfSet(\'face\',this.value)"></div>';
+  if (f.type === "discount") {
+    h += '<div><label class="small">折扣（填68 = 打68折）</label><input type="number" inputmode="decimal" value="' + esc(f.rate) + '" oninput="cfSet(\'rate\',this.value)"></div>';
+  } else {
+    h += '<div><label class="small">券价（元）</label><input type="number" inputmode="decimal" value="' + esc(f.pay) + '" oninput="cfSet(\'pay\',this.value)"></div>';
+    h += '<div><label class="small">面值（元）</label><input type="number" inputmode="decimal" value="' + esc(f.face) + '" oninput="cfSet(\'face\',this.value)"></div>';
+  }
   h += '</div>';
   h += '<label class="small">备注（不可用范围等）</label><input type="text" value="' + esc(f.note) + '" oninput="cfSet(\'note\',this.value)">';
   h += '<button class="btn primary" style="margin-top:18px" onclick="saveCoupon()">保存</button>';
@@ -505,8 +526,12 @@ window.setDay = function (v) { state.dayIdx = Number(v); render(); };
 window.setLunch = function (v) { state.isLunch = v; render(); };
 window.setStack = function (v) { state.stack = v; render(); };
 window.setMode = function (m) { state.mode = m; render(); };
-window.setTotal = function (v) { state.totalInput = v; render(); };
-window.setExcluded = function (v) { state.excludedInput = v; render(); };
+function updateResults() {
+  var el = document.getElementById("calc-results");
+  if (el) el.innerHTML = calcResultsHTML();
+}
+window.setTotal = function (v) { state.totalInput = v; updateResults(); };
+window.setExcluded = function (v) { state.excludedInput = v; updateResults(); };
 window.chgQty = function (arg) {
   var parts = arg.split(",");
   var id = parts[0], delta = Number(parts[1]);
@@ -519,7 +544,7 @@ window.setCatFilter = function (v) { state.catFilter = v; render(); };
 window.closeModal = function () { state.couponModal = null; state.dishModal = null; render(); };
 
 window.openCouponAdd = function () {
-  state.couponModal = { editingId: null, form: { name: "", channel: "美团线上", pay: "", face: 100, avail: "all", note: "" } };
+  state.couponModal = { editingId: null, form: { name: "", channel: "美团线上", type: "voucher", pay: "", face: 100, rate: "", avail: "all", note: "" } };
   render();
 };
 window.openCouponEdit = function (id) {
@@ -529,18 +554,27 @@ window.openCouponEdit = function (id) {
   render();
 };
 window.cfSet = function (k, v) { state.couponModal.form[k] = v; };
+window.cfSetRender = function (k, v) { state.couponModal.form[k] = v; render(); };
 window.saveCoupon = function () {
   var m = state.couponModal, f = m.form;
-  var pay = Number(f.pay), face = Number(f.face);
-  if (!f.name.trim() || !pay || !face) { alert("请填写名称、券价和面值"); return; }
-  f.name = f.name.trim(); f.pay = pay; f.face = face;
+  f.name = (f.name || "").trim();
+  if (!f.name) { alert("请填写名称"); return; }
+  if (f.type === "discount") {
+    var rate = Number(f.rate);
+    if (!rate || rate <= 0 || rate >= 100) { alert("折扣请填 1-99 之间的数字，例如 68 表示打68折"); return; }
+    f.rate = rate;
+  } else {
+    var pay = Number(f.pay), face = Number(f.face);
+    if (!pay || !face) { alert("请填写券价和面值"); return; }
+    f.pay = pay; f.face = face;
+  }
   if (m.editingId) {
     state.coupons = state.coupons.map(function (c) { return c.id === m.editingId ? Object.assign({}, c, f) : c; });
   } else {
     f.id = newId();
     state.coupons = state.coupons.concat([f]);
   }
-  lsSet("jqcalc/coupons/v1", state.coupons);
+  lsSet("jqcalc/coupons/v2", state.coupons);
   state.couponModal = null;
   state.tab = "coupons";
   render();
@@ -548,13 +582,13 @@ window.saveCoupon = function () {
 window.delCoupon = function (id) {
   if (!confirm("确定删除这条券规则？")) return;
   state.coupons = state.coupons.filter(function (c) { return c.id !== id; });
-  lsSet("jqcalc/coupons/v1", state.coupons);
+  lsSet("jqcalc/coupons/v2", state.coupons);
   render();
 };
 window.resetCoupons = function () {
-  if (!confirm("恢复为默认的4条券规则？当前自定义规则会被覆盖。")) return;
+  if (!confirm("恢复为默认的3条券规则？当前自定义规则会被覆盖。")) return;
   state.coupons = JSON.parse(JSON.stringify(DEFAULT_COUPONS));
-  lsSet("jqcalc/coupons/v1", state.coupons);
+  lsSet("jqcalc/coupons/v2", state.coupons);
   render();
 };
 
